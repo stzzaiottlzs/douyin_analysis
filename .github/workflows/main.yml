@@ -1,0 +1,67 @@
+name: douyin without watermarker analysis
+on:
+  push:
+    branches:
+      - master
+
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+#    container:
+#      image: "centos:7"  # 需要运行的容器镜像（参考 docker hub）
+
+
+    steps:
+
+      - name: Checkout Code
+        id: checkout_code
+        uses: actions/checkout@master
+
+      - name: Build Package
+        id: build_package
+        run: |
+          ls -l
+          tar -zcvf douyin_analysis.tar.gz ./*
+          ls -l
+
+      - name: Install sshpass
+        run: |
+          sudo apt install -y sshpass
+          
+
+      # 发布Release
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@master
+        env:
+          GITHUB_TOKEN: ${{ secrets.TOKEN }}
+        with:
+          tag_name: ${{ github.ref_name }}_${{ github.run_number }}
+          release_name: Release ${{ github.ref_name }}_${{ github.run_number }}
+          draft: false
+          prerelease: false
+
+      #上传构建结果到Release
+      - name: Upload Release Resources
+        id: upload_release_resources
+        uses: actions/upload-release-asset@master
+        env:
+          GITHUB_TOKEN: ${{ secrets.TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./douyin_analysis.tar.gz
+          asset_name: douyin_analysis.tar.gz
+          asset_content_type: application/gzip
+
+      #部署到服务器
+      - name: Deploy to My Server
+        run: |
+          ls -l
+          sshpass -p ${{ secrets.PASSWORD }} scp -o StrictHostKeyChecking=no ./run.sh ${{ secrets.USERNAME }}@${{ secrets.HOST }}:~/
+          sshpass -p ${{ secrets.PASSWORD }} scp -o StrictHostKeyChecking=no ./douyin_analysis.tar.gz ${{ secrets.USERNAME }}@${{ secrets.HOST }}:~/
+          sshpass -p ${{ secrets.PASSWORD }} ssh ${{ secrets.USERNAME }}@${{ secrets.HOST }} -o StrictHostKeyChecking=no chmod +x  /${{ secrets.USERNAME }}/run.sh
+          sshpass -p ${{ secrets.PASSWORD }} ssh ${{ secrets.USERNAME }}@${{ secrets.HOST }} -o StrictHostKeyChecking=no /${{ secrets.USERNAME }}/run.sh
+          
+          
+
